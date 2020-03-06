@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: openshift-janitor-operator
+subjects:
+- kind: ServiceAccount
+  name: openshift-janitor-operator
+roleRef:
+  kind: Role
+  name: openshift-janitor-operator
+  apiGroup: rbac.authorization.k8s.io

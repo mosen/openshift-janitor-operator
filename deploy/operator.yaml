@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openshift-janitor-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: openshift-janitor-operator
+  template:
+    metadata:
+      labels:
+        name: openshift-janitor-operator
+    spec:
+      serviceAccountName: openshift-janitor-operator
+      containers:
+        - name: openshift-janitor-operator
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          command:
+          - openshift-janitor-operator
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "openshift-janitor-operator"
