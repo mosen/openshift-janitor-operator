@@ -2,16 +2,31 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+type ActionSpec struct {
+}
 
 // JanitorSpec defines the desired state of Janitor
 type JanitorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	// +kubebuilder:validation:MinItems=1
+	IgnoreProjects []string `json:ignore,omitempty`
+
+	// +kubebuilder:validation:MinLength=1
+	IgnoreAnnotation string `json:ignoreAnnotation,`
+
+	// +kubebuilder:validation:Enum=Report,ZeroReplicas,Delete
+	Action string `json:action`
+
+	MaximumAgeDays int `json:maximumAgeDays`
 }
 
 // JanitorStatus defines the observed state of Janitor
@@ -19,6 +34,9 @@ type JanitorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	LastClean  time.Time `json:lastClean`
+	LastAction string    `json:lastAction`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
