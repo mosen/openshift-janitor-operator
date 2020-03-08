@@ -1,4 +1,4 @@
-package janitor
+package sweep
 
 import (
 	"context"
@@ -19,14 +19,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_janitor")
+var log = logf.Log.WithName("controller_sweep")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
  */
 
-// Add creates a new Janitor Controller and adds it to the Manager. The Manager will set fields on the Controller
+// Add creates a new Sweep Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
@@ -34,28 +34,28 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileJanitor{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileSweep{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("janitor-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("sweep-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
 
-	// Watch for changes to primary resource Janitor
-	err = c.Watch(&source.Kind{Type: &comv1alpha1.Janitor{}}, &handler.EnqueueRequestForObject{})
+	// Watch for changes to primary resource Sweep
+	err = c.Watch(&source.Kind{Type: &comv1alpha1.Sweep{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Janitor
+	// Watch for changes to secondary resource Pods and requeue the owner Sweep
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &comv1alpha1.Janitor{},
+		OwnerType:    &comv1alpha1.Sweep{},
 	})
 	if err != nil {
 		return err
@@ -64,30 +64,30 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileJanitor implements reconcile.Reconciler
-var _ reconcile.Reconciler = &ReconcileJanitor{}
+// blank assignment to verify that ReconcileSweep implements reconcile.Reconciler
+var _ reconcile.Reconciler = &ReconcileSweep{}
 
-// ReconcileJanitor reconciles a Janitor object
-type ReconcileJanitor struct {
+// ReconcileSweep reconciles a Sweep object
+type ReconcileSweep struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Janitor object and makes changes based on the state read
-// and what is in the Janitor.Spec
+// Reconcile reads that state of the cluster for a Sweep object and makes changes based on the state read
+// and what is in the Sweep.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileJanitor) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileSweep) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Janitor")
+	reqLogger.Info("Reconciling Sweep")
 
-	// Fetch the Janitor instance
-	instance := &comv1alpha1.Janitor{}
+	// Fetch the Sweep instance
+	instance := &comv1alpha1.Sweep{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -103,7 +103,7 @@ func (r *ReconcileJanitor) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Define a new Pod object
 	pod := newPodForCR(instance)
 
-	// Set Janitor instance as the owner and controller
+	// Set Sweep instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -130,7 +130,7 @@ func (r *ReconcileJanitor) Reconcile(request reconcile.Request) (reconcile.Resul
 }
 
 // newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *comv1alpha1.Janitor) *corev1.Pod {
+func newPodForCR(cr *comv1alpha1.Sweep) *corev1.Pod {
 	labels := map[string]string{
 		"app": cr.Name,
 	}

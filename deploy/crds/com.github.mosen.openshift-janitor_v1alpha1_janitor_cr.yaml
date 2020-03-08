@@ -1,7 +1,0 @@
-apiVersion: com.github.mosen.openshift-janitor/v1alpha1
-kind: Janitor
-metadata:
-  name: example-janitor
-spec:
-  # Add fields here
-  size: 3

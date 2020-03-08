@@ -1,0 +1,8 @@
+apiVersion: com.github.mosen.openshift-janitor/v1alpha1
+kind: Sweep
+metadata:
+  name: example-sweep
+spec:
+  # The maximum number of days old a Project can be before removal
+  maximumAgeDays: 90
+

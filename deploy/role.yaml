@@ -70,6 +70,7 @@ rules:
   - com.github.mosen.openshift-janitor
   resources:
   - '*'
+  - sweeps
   verbs:
   - create
   - delete
