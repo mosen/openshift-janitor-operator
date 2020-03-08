@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/mosen/openshift-janitor-operator/pkg/apis/com/v1alpha1"
+	"github.com/mosen/openshift-janitor-operator/pkg/apis/janitor/v1alpha1"
 )
 
 func init() {

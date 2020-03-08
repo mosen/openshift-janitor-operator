@@ -2,16 +2,20 @@ package sweep
 
 import (
 	"context"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+	"time"
 
-	comv1alpha1 "github.com/mosen/openshift-janitor-operator/pkg/apis/com/v1alpha1"
+	comv1alpha1 "github.com/mosen/openshift-janitor-operator/pkg/apis/janitor/v1alpha1"
+	projectv1 "github.com/openshift/api/project/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -34,6 +38,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	projectv1.Install(mgr.GetScheme())
 	return &ReconcileSweep{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
@@ -100,54 +105,104 @@ func (r *ReconcileSweep) Reconcile(request reconcile.Request) (reconcile.Result,
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
+	_, err = r.execSweep(instance)
+	if err != nil {
+		reqLogger.Error(err, "Unable to execute Sweep")
+		return reconcile.Result{}, err
+	}
 	// Set Sweep instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
+	//if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	//	return reconcile.Result{}, err
+	//}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	//// Check if this Pod already exists
+	//found := &corev1.Pod{}
+	//err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	//if err != nil && errors.IsNotFound(err) {
+	//	reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+	//	err = r.client.Create(context.TODO(), pod)
+	//	if err != nil {
+	//		return reconcile.Result{}, err
+	//	}
+	//
+	//	// Pod created successfully - don't requeue
+	//	return reconcile.Result{}, nil
+	//} else if err != nil {
+	//	return reconcile.Result{}, err
+	//}
+	//
+	//// Pod already exists - don't requeue
+	//reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *comv1alpha1.Sweep) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+// Exec sweep executes a sweep over the Projects in the current cluster
+func (r *ReconcileSweep) execSweep(cr *comv1alpha1.Sweep) ([]string, error) {
+	now := metav1.NewTime(time.Now())
+	//cr.Status.Active = true
+	// cr.Status.Started = &now
+	//r.client.Update(context.TODO(), cr)
+
+	oldestTimestamp := metav1.NewTime(now.AddDate(0, 0, -1*cr.Spec.MaximumAgeDays))
+
+	projects := &projectv1.ProjectList{}
+	opts := []client.ListOption{
+		client.InNamespace(""),
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
+	if err := r.client.List(context.TODO(), projects, opts...); err != nil {
+		return nil, err
 	}
+
+	if len(projects.Items) == 0 {
+		return nil, nil
+	}
+
+	sweepLogger := log.WithValues()
+
+OuterLoop:
+	for _, project := range projects.Items {
+		if strings.HasPrefix(project.GetName(), "openshift") || strings.HasPrefix(project.GetName(), "kube-") {
+			sweepLogger.Info("skipping system namespace/project", "metav1.Name", project.GetName())
+			continue
+		}
+
+		for _, ignoreProject := range cr.Spec.IgnoreProjects {
+			if ignoreProject == project.GetName() {
+				sweepLogger.Info("skipping ignored project", "metav1.Name", project.GetName())
+				break OuterLoop
+			}
+		}
+
+		creationTs := project.GetCreationTimestamp()
+		sweepLogger.Info("processing project", "metav1.Name", project.GetName(), "metav1.CreationTimestamp", creationTs)
+		if creationTs.Before(&oldestTimestamp) {
+			difference := creationTs.Sub(oldestTimestamp.Time)
+			sweepLogger.Info("project is older than MaximumAgeDays", "metav1.Name", project.GetName(), "ageDays", difference.Hours()/24)
+		}
+	}
+
+	return nil, nil
 }
+
+// newPodForCR returns a busybox pod with the same name/namespace as the cr
+//func newPodForCR(cr *comv1alpha1.Sweep) *corev1.Pod {
+//	labels := map[string]string{
+//		"app": cr.Name,
+//	}
+//	return &corev1.Pod{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Name:      cr.Name + "-pod",
+//			Namespace: cr.Namespace,
+//			Labels:    labels,
+//		},
+//		Spec: corev1.PodSpec{
+//			Containers: []corev1.Container{
+//				{
+//					Name:    "busybox",
+//					Image:   "busybox",
+//					Command: []string{"sleep", "3600"},
+//				},
+//			},
+//		},
+//	}
+//}

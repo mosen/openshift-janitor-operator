@@ -6,3 +6,10 @@ spec:
   # The maximum number of days old a Project can be before removal
   maximumAgeDays: 90
 
+  # Ignore these projects/namespaces for deletion
+  ignore:
+    - mtm-cicd
+
+  # Ignore projects with this annotation
+  ignoreAnnotation:
+    com.github.mosen.openshift-janitor: "ignore"
