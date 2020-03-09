@@ -4,23 +4,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 // SweepSpec defines the desired state of Sweep, which is a single scan of all Projects/Namespaces for Old and Unused
 // Resources.
 type SweepSpec struct {
-	// +kubebuilder:validation:MinItems=1
-	IgnoreProjects []string `json:"ignore,omitempty"`
-
-	// +kubebuilder:validation:MinLength=1
-	IgnoreAnnotation string `json:"ignoreAnnotation,omitempty"`
+	IgnoreProjects    []string          `json:"ignoreProjects,omitempty"`
+	IgnoreAnnotations map[string]string `json:"ignoreAnnotation,omitempty"`
 
 	// +kubebuilder:validation:Minimum=1
-	MaximumAgeDays int `json:"maximumAgeDays"`
+	WarnAgeDays int `json:"warnAgeDays"`
+
+	// +kubebuilder:validation:Minimum=1
+	DeleteAgeDays int `json:"deleteAgeDays"`
 }
 
-// SweepStatus defines the observed state of Sweep
+// SweepStatus defines the state of a Sweep operation
 type SweepStatus struct {
 	Active bool `json:"active"`
 
@@ -28,15 +27,12 @@ type SweepStatus struct {
 	Finished *metav1.Time `json:"finished,omitempty"`
 
 	ProjectsDeleted []string `json:"projectsDeleted,omitempty"`
-
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Sweep is the Schema for the sweeps API
+// Sweep is the Schema for the sweeps API.
+// A "Sweep" is a single operation which scans the entire cluster for outdated/unused Projects
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=sweeps,scope=Namespaced
 type Sweep struct {

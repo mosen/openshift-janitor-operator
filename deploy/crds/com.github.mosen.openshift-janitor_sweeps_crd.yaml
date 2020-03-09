@@ -14,7 +14,8 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
-      description: Sweep is the Schema for the sweeps API
+      description: Sweep is the Schema for the sweeps API. A "Sweep" is a single operation
+        which scans the entire cluster for outdated/unused Projects
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -32,22 +33,27 @@ spec:
           description: SweepSpec defines the desired state of Sweep, which is a single
             scan of all Projects/Namespaces for Old and Unused Resources.
           properties:
+            deleteAgeDays:
+              minimum: 1
+              type: integer
             ignore:
               items:
                 type: string
               minItems: 1
               type: array
             ignoreAnnotation:
-              minLength: 1
-              type: string
-            maximumAgeDays:
+              additionalProperties:
+                type: string
+              type: object
+            warnAgeDays:
               minimum: 1
               type: integer
           required:
-          - maximumAgeDays
+          - deleteAgeDays
+          - warnAgeDays
           type: object
         status:
-          description: SweepStatus defines the observed state of Sweep
+          description: SweepStatus defines the state of a Sweep operation
           properties:
             active:
               type: boolean

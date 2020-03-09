@@ -3,6 +3,7 @@ package sweep
 import (
 	"context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"time"
 
@@ -80,13 +81,6 @@ type ReconcileSweep struct {
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a Sweep object and makes changes based on the state read
-// and what is in the Sweep.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileSweep) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Sweep")
@@ -110,8 +104,9 @@ func (r *ReconcileSweep) Reconcile(request reconcile.Request) (reconcile.Result,
 		reqLogger.Error(err, "Unable to execute Sweep")
 		return reconcile.Result{}, err
 	}
+
 	// Set Sweep instance as the owner and controller
-	//if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	//if err := controllerutil.SetControllerReference(instance, comv1alpha1.Sweep, r.scheme); err != nil {
 	//	return reconcile.Result{}, err
 	//}
 
@@ -139,11 +134,22 @@ func (r *ReconcileSweep) Reconcile(request reconcile.Request) (reconcile.Result,
 // Exec sweep executes a sweep over the Projects in the current cluster
 func (r *ReconcileSweep) execSweep(cr *comv1alpha1.Sweep) ([]string, error) {
 	now := metav1.NewTime(time.Now())
-	//cr.Status.Active = true
-	// cr.Status.Started = &now
-	//r.client.Update(context.TODO(), cr)
+	cr.Status.Active = true
+	cr.Status.Started = &now
+	if err := r.client.Update(context.TODO(), cr); err != nil {
+		return nil, err
+	}
 
-	oldestTimestamp := metav1.NewTime(now.AddDate(0, 0, -1*cr.Spec.MaximumAgeDays))
+	defer func() {
+		cr.Status.Active = false
+		finished := metav1.NewTime(time.Now())
+		cr.Status.Finished = &finished
+		if err := r.client.Update(context.TODO(), cr); err != nil {
+			return
+		}
+	}()
+
+	oldestTimestamp := metav1.NewTime(now.AddDate(0, 0, -1*cr.Spec.DeleteAgeDays))
 
 	projects := &projectv1.ProjectList{}
 	opts := []client.ListOption{
@@ -158,10 +164,10 @@ func (r *ReconcileSweep) execSweep(cr *comv1alpha1.Sweep) ([]string, error) {
 	}
 
 	sweepLogger := log.WithValues()
+	projectsToAction := make([]projectv1.Project, 0, 100)
 
-OuterLoop:
 	for _, project := range projects.Items {
-		if strings.HasPrefix(project.GetName(), "openshift") || strings.HasPrefix(project.GetName(), "kube-") {
+		if strings.HasPrefix(project.GetName(), "openshift") || strings.HasPrefix(project.GetName(), "kube-") || project.GetName() == "default" {
 			sweepLogger.Info("skipping system namespace/project", "metav1.Name", project.GetName())
 			continue
 		}
@@ -169,7 +175,6 @@ OuterLoop:
 		for _, ignoreProject := range cr.Spec.IgnoreProjects {
 			if ignoreProject == project.GetName() {
 				sweepLogger.Info("skipping ignored project", "metav1.Name", project.GetName())
-				break OuterLoop
 			}
 		}
 
@@ -178,31 +183,11 @@ OuterLoop:
 		if creationTs.Before(&oldestTimestamp) {
 			difference := creationTs.Sub(oldestTimestamp.Time)
 			sweepLogger.Info("project is older than MaximumAgeDays", "metav1.Name", project.GetName(), "ageDays", difference.Hours()/24)
+			projectsToAction = append(projectsToAction, project)
 		}
 	}
 
+	sweepLogger.Info("will remove projects", "projects", projectsToAction)
+
 	return nil, nil
 }
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-//func newPodForCR(cr *comv1alpha1.Sweep) *corev1.Pod {
-//	labels := map[string]string{
-//		"app": cr.Name,
-//	}
-//	return &corev1.Pod{
-//		ObjectMeta: metav1.ObjectMeta{
-//			Name:      cr.Name + "-pod",
-//			Namespace: cr.Namespace,
-//			Labels:    labels,
-//		},
-//		Spec: corev1.PodSpec{
-//			Containers: []corev1.Container{
-//				{
-//					Name:    "busybox",
-//					Image:   "busybox",
-//					Command: []string{"sleep", "3600"},
-//				},
-//			},
-//		},
-//	}
-//}

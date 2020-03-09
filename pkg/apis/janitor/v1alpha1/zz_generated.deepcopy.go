@@ -77,6 +77,13 @@ func (in *SweepSpec) DeepCopyInto(out *SweepSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.IgnoreAnnotations != nil {
+		in, out := &in.IgnoreAnnotations, &out.IgnoreAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

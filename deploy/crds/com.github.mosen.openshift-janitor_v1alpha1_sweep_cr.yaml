@@ -3,8 +3,12 @@ kind: Sweep
 metadata:
   name: example-sweep
 spec:
+
+  # The age of a project, after which the owner will be warned about its removal.
+  warnAgeDays: 83
+
   # The maximum number of days old a Project can be before removal
-  maximumAgeDays: 90
+  deleteAgeDays: 90
 
   # Ignore these projects/namespaces for deletion
   ignore:
